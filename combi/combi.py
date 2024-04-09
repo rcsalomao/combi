@@ -2,6 +2,9 @@ from __future__ import annotations
 from typing import List
 import itertools
 from enum import Enum, auto
+import json
+import csv
+from itertools import chain
 
 
 class CPSeparadoType(Enum):
@@ -273,7 +276,7 @@ class CargaAcidental(object):
             return self.phi2[self.tipo_coef_reducao]
 
 
-def append_combo(
+def check_append_combo(
     out: List[float], ca: List[float], n_cargas_acidentais: int, tol: float
 ):
     for o in out:
@@ -341,9 +344,104 @@ def calc_combi_ultima_carga_acidental(
                 cargas_acidentais[k].get_gamma(tipo_combinacao, combos_fav_desfav[i][k])
                 * cargas_acidentais[k].valor
             )
-            if append_combo(combis, ca, n_cargas_acidentais, tol):
+            if check_append_combo(combis, ca, n_cargas_acidentais, tol):
                 combis.append(ca)
     return combis
+
+
+def calc_combi_servico_carga_permanente(cargas_permanentes: List[CargaPermanente]):
+    combi = []
+    for cp in cargas_permanentes:
+        combi.append(cp.valor)
+    return combi
+
+
+def calc_combi_servico_carga_acidental(
+    cargas_acidentais: List[CargaAcidental], tipo_combinacao: str, tol: float = 1e-8
+):
+    assert tipo_combinacao in ["quase permanente", "frequente", "raro"]
+    n_cargas_acidentais = len(cargas_acidentais)
+    combos_fav_desfav = list(
+        itertools.product([True, False], repeat=(n_cargas_acidentais))
+    )
+    combis = []
+    if tipo_combinacao == "quase permanente":
+        for i in range(len(combos_fav_desfav)):
+            ca = []
+            for j in range(n_cargas_acidentais):
+                ca.append(
+                    cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
+                    * cargas_acidentais[j].valor
+                )
+            if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                combis.append(ca)
+    elif tipo_combinacao == "frequente":
+        for i in range(len(combos_fav_desfav)):
+            for k in range(n_cargas_acidentais):
+                ca = []
+                for j in range(n_cargas_acidentais):
+                    ca.append(
+                        cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
+                        * cargas_acidentais[j].valor
+                    )
+                ca[k] = (
+                    cargas_acidentais[k].get_phi1(combos_fav_desfav[i][k])
+                    * cargas_acidentais[k].valor
+                )
+                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    combis.append(ca)
+    elif tipo_combinacao == "raro":
+        for i in range(len(combos_fav_desfav)):
+            for k in range(n_cargas_acidentais):
+                ca = []
+                for j in range(n_cargas_acidentais):
+                    ca.append(
+                        cargas_acidentais[j].get_phi1(combos_fav_desfav[i][j])
+                        * cargas_acidentais[j].valor
+                    )
+                ca[k] = cargas_acidentais[k].valor if combos_fav_desfav[i][k] else 0.0
+                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    combis.append(ca)
+    return combis
+
+
+class Combi(object):
+    def __init__(self, data: dict):
+        self._data = data
+
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def labels(self):
+        return self.data["labels"]
+
+    @property
+    def combis(self):
+        return self.data["combis"]
+
+    def get_json(self):
+        return json.dumps(
+            {
+                "labels": list(chain.from_iterable(self.labels)),
+                "combis": [list(chain.from_iterable(cbs)) for cbs in self.combis],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    def write_json(self, file_name: str):
+        json_string = self.get_json()
+        with open(file_name + ".json", "w") as file:
+            file.write(json_string)
+
+    def write_csv(self, file_name: str):
+        with open(file_name + ".csv", "w") as file:
+            csv_writer = csv.writer(file)
+            csv_writer.writerow(list(chain.from_iterable(self.labels)))
+            for cbs in self.combis:
+                csv_writer.writerow(list(chain.from_iterable(cbs)))
 
 
 def calc_combi_ultima(
@@ -391,63 +489,7 @@ def calc_combi_ultima(
         else [],
         [ca.label for ca in cargas_acidentais] if cargas_acidentais is not None else [],
     )
-    return {"labels": labels, "combis": combis}
-
-
-def calc_combi_servico_carga_permanente(cargas_permanentes: List[CargaPermanente]):
-    combi = []
-    for cp in cargas_permanentes:
-        combi.append(cp.valor)
-    return combi
-
-
-def calc_combi_servico_carga_acidental(
-    cargas_acidentais: List[CargaAcidental], tipo_combinacao: str, tol: float = 1e-8
-):
-    assert tipo_combinacao in ["quase permanente", "frequente", "raro"]
-    n_cargas_acidentais = len(cargas_acidentais)
-    combos_fav_desfav = list(
-        itertools.product([True, False], repeat=(n_cargas_acidentais))
-    )
-    combis = []
-    if tipo_combinacao == "quase permanente":
-        for i in range(len(combos_fav_desfav)):
-            ca = []
-            for j in range(n_cargas_acidentais):
-                ca.append(
-                    cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
-                    * cargas_acidentais[j].valor
-                )
-            if append_combo(combis, ca, n_cargas_acidentais, tol):
-                combis.append(ca)
-    elif tipo_combinacao == "frequente":
-        for i in range(len(combos_fav_desfav)):
-            for k in range(n_cargas_acidentais):
-                ca = []
-                for j in range(n_cargas_acidentais):
-                    ca.append(
-                        cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
-                        * cargas_acidentais[j].valor
-                    )
-                ca[k] = (
-                    cargas_acidentais[k].get_phi1(combos_fav_desfav[i][k])
-                    * cargas_acidentais[k].valor
-                )
-                if append_combo(combis, ca, n_cargas_acidentais, tol):
-                    combis.append(ca)
-    elif tipo_combinacao == "raro":
-        for i in range(len(combos_fav_desfav)):
-            for k in range(n_cargas_acidentais):
-                ca = []
-                for j in range(n_cargas_acidentais):
-                    ca.append(
-                        cargas_acidentais[j].get_phi1(combos_fav_desfav[i][j])
-                        * cargas_acidentais[j].valor
-                    )
-                ca[k] = cargas_acidentais[k].valor if combos_fav_desfav[i][k] else 0.0
-                if append_combo(combis, ca, n_cargas_acidentais, tol):
-                    combis.append(ca)
-    return combis
+    return Combi({"labels": labels, "combis": combis})
 
 
 def calc_combi_servico(
@@ -489,4 +531,4 @@ def calc_combi_servico(
         else [],
         [ca.label for ca in cargas_acidentais] if cargas_acidentais is not None else [],
     )
-    return {"labels": labels, "combis": combis}
+    return Combi({"labels": labels, "combis": combis})
