@@ -321,7 +321,10 @@ def calc_combi_ultima_carga_permanente(
 
 
 def calc_combi_ultima_carga_acidental(
-    cargas_acidentais: List[CargaAcidental], tipo_combinacao: str, tol: float = 1e-8
+    cargas_acidentais: List[CargaAcidental],
+    tipo_combinacao: str,
+    filtrar_combi_semelhantes: bool = False,
+    tol: float = 1e-8,
 ):
     assert tipo_combinacao in ["normal", "especial", "excepcional"]
     n_cargas_acidentais = len(cargas_acidentais)
@@ -350,7 +353,11 @@ def calc_combi_ultima_carga_acidental(
             )
             lbls[k] = str(gamma_q) + "*" + cargas_acidentais[k].label
             ca[k] = gamma_q * cargas_acidentais[k].valor
-            if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+            if filtrar_combi_semelhantes:
+                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    label_combis.append(" + ".join(lbls))
+                    combis.append(ca)
+            else:
                 label_combis.append(" + ".join(lbls))
                 combis.append(ca)
     return (label_combis, combis)
@@ -369,7 +376,10 @@ def calc_combi_servico_carga_permanente(cargas_permanentes: List[CargaPermanente
 
 
 def calc_combi_servico_carga_acidental(
-    cargas_acidentais: List[CargaAcidental], tipo_combinacao: str, tol: float = 1e-8
+    cargas_acidentais: List[CargaAcidental],
+    tipo_combinacao: str,
+    filtrar_combi_semelhantes: bool = False,
+    tol: float = 1e-8,
 ):
     assert tipo_combinacao in ["quase permanente", "frequente", "raro"]
     n_cargas_acidentais = len(cargas_acidentais)
@@ -386,7 +396,11 @@ def calc_combi_servico_carga_acidental(
                 phi2 = cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
                 lbls.append(str(phi2) + "*" + cargas_acidentais[j].label)
                 ca.append(phi2 * cargas_acidentais[j].valor)
-            if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+            if filtrar_combi_semelhantes:
+                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    label_combis.append(lbls)
+                    combis.append(ca)
+            else:
                 label_combis.append(lbls)
                 combis.append(ca)
     elif tipo_combinacao == "frequente":
@@ -401,7 +415,11 @@ def calc_combi_servico_carga_acidental(
                 phi1 = cargas_acidentais[k].get_phi1(combos_fav_desfav[i][k])
                 lbls[k] = str(phi1) + "*" + cargas_acidentais[k].label
                 ca[k] = phi1 * cargas_acidentais[k].valor
-                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                if filtrar_combi_semelhantes:
+                    if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                        label_combis.append(lbls)
+                        combis.append(ca)
+                else:
                     label_combis.append(lbls)
                     combis.append(ca)
     elif tipo_combinacao == "raro":
@@ -416,7 +434,11 @@ def calc_combi_servico_carga_acidental(
                 phi = 1.0 if combos_fav_desfav[i][k] else 0.0
                 lbls[k] = str(phi) + "*" + cargas_acidentais[k].label
                 ca[k] = phi * cargas_acidentais[k].valor
-                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                if filtrar_combi_semelhantes:
+                    if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                        label_combis.append(lbls)
+                        combis.append(ca)
+                else:
                     label_combis.append(lbls)
                     combis.append(ca)
     return (label_combis, combis)
@@ -477,6 +499,7 @@ def calc_combi_ultima(
     cargas_permanentes: List[CargaPermanente] = None,
     cargas_acidentais: List[CargaAcidental] = None,
     tipo_combinacao: str = "normal",
+    filtrar_combi_semelhantes: bool = False,
     tol: float = 1e-8,
 ):
     if cargas_permanentes is not None:
@@ -498,7 +521,7 @@ def calc_combi_ultima(
         label_combis = label_cp_combi_ultima
     elif (cargas_permanentes is None) and (cargas_acidentais is not None):
         label_ca_combi_ultima, ca_combi_ultima = calc_combi_ultima_carga_acidental(
-            cargas_acidentais, tipo_combinacao, tol
+            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
         )
         for ca in ca_combi_ultima:
             combis.append(([], ca))
@@ -510,7 +533,7 @@ def calc_combi_ultima(
             cargas_permanentes, tipo_combinacao
         )
         label_ca_combi_ultima, ca_combi_ultima = calc_combi_ultima_carga_acidental(
-            cargas_acidentais, tipo_combinacao, tol
+            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
         )
         for m, cp in enumerate(cp_combi_ultima):
             for n, ca in enumerate(ca_combi_ultima):
@@ -537,6 +560,7 @@ def calc_combi_servico(
     cargas_permanentes: List[CargaPermanente] = None,
     cargas_acidentais: List[CargaAcidental] = None,
     tipo_combinacao: str = "frequente",
+    filtrar_combi_semelhantes: bool = False,
     tol: float = 1e-8,
 ):
     if cargas_permanentes is not None:
@@ -558,7 +582,7 @@ def calc_combi_servico(
         label_combis = label_cp_combi_servico
     elif (cargas_permanentes is None) and (cargas_acidentais is not None):
         label_ca_combi_servico, ca_combi_servico = calc_combi_servico_carga_acidental(
-            cargas_acidentais, tipo_combinacao, tol
+            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
         )
         for ca in ca_combi_servico:
             combis.append(([], ca))
@@ -570,7 +594,7 @@ def calc_combi_servico(
             cargas_permanentes
         )
         label_ca_combi_servico, ca_combi_servico = calc_combi_servico_carga_acidental(
-            cargas_acidentais, tipo_combinacao, tol
+            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
         )
         for m, cp in enumerate(cp_combi_servico):
             for n, ca in enumerate(ca_combi_servico):
