@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 from typing import List
 import itertools
 from enum import Enum, auto
@@ -16,6 +17,10 @@ class CPSeparadoType(Enum):
     ELEMENTOS_CONSTRUTIVOS_EM_GERAL_E_EQUIPAMENTOS = auto()
     EFEITOS_DE_RECALQUES_DE_APOIO = auto()
     EFEITOS_DE_RETRACAO_DOS_MATERIAIS = auto()
+    PROTENSAO = auto()
+    ELEMENTOS_ESTRUTURAIS_DE_MADEIRA_EM_GERAL_NBR7190_2022 = auto()
+    ELEMENTOS_ESTRUTURAIS_INDUSTRIALIZADOS_DE_MADEIRA_NBR7190_2022 = auto()
+    ACOES_PERMANENTES_NBR6118_2023 = auto()
 
 
 class CPAgrupadoType(Enum):
@@ -24,6 +29,7 @@ class CPAgrupadoType(Enum):
     EDIFICACOES_TIPO_2 = auto()
     EFEITOS_DE_RECALQUES_DE_APOIO = auto()
     EFEITOS_DE_RETRACAO_DOS_MATERIAIS = auto()
+    PROTENSAO = auto()
 
 
 class CargaPermanente(object):
@@ -38,6 +44,10 @@ class CargaPermanente(object):
                 CPSeparadoType.ELEMENTOS_CONSTRUTIVOS_EM_GERAL_E_EQUIPAMENTOS: 1.5,
                 CPSeparadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 1.2,
                 CPSeparadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 1.2,
+                CPSeparadoType.PROTENSAO: 1.2,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_DE_MADEIRA_EM_GERAL_NBR7190_2022: 1.30,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_INDUSTRIALIZADOS_DE_MADEIRA_NBR7190_2022: 1.25,
+                CPSeparadoType.ACOES_PERMANENTES_NBR6118_2023: 1.4,
             },
             "especial": {
                 CPSeparadoType.PESO_PROPRIO_ESTRUTURA_METALICA: 1.15,
@@ -48,6 +58,10 @@ class CargaPermanente(object):
                 CPSeparadoType.ELEMENTOS_CONSTRUTIVOS_EM_GERAL_E_EQUIPAMENTOS: 1.4,
                 CPSeparadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 1.2,
                 CPSeparadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 1.2,
+                CPSeparadoType.PROTENSAO: 1.2,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_DE_MADEIRA_EM_GERAL_NBR7190_2022: 1.20,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_INDUSTRIALIZADOS_DE_MADEIRA_NBR7190_2022: 1.15,
+                CPSeparadoType.ACOES_PERMANENTES_NBR6118_2023: 1.3,
             },
             "excepcional": {
                 CPSeparadoType.PESO_PROPRIO_ESTRUTURA_METALICA: 1.1,
@@ -58,6 +72,10 @@ class CargaPermanente(object):
                 CPSeparadoType.ELEMENTOS_CONSTRUTIVOS_EM_GERAL_E_EQUIPAMENTOS: 1.3,
                 CPSeparadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 0.0,
                 CPSeparadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 0.0,
+                CPSeparadoType.PROTENSAO: 1.2,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_DE_MADEIRA_EM_GERAL_NBR7190_2022: 1.15,
+                CPSeparadoType.ELEMENTOS_ESTRUTURAIS_INDUSTRIALIZADOS_DE_MADEIRA_NBR7190_2022: 1.10,
+                CPSeparadoType.ACOES_PERMANENTES_NBR6118_2023: 1.2,
             },
         },
         "agrupado": {
@@ -67,6 +85,7 @@ class CargaPermanente(object):
                 CPAgrupadoType.EDIFICACOES_TIPO_2: 1.4,
                 CPAgrupadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 1.2,
                 CPAgrupadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 1.2,
+                CPSeparadoType.PROTENSAO: 1.2,
             },
             "especial": {
                 CPAgrupadoType.GRANDES_PONTES: 1.2,
@@ -74,6 +93,7 @@ class CargaPermanente(object):
                 CPAgrupadoType.EDIFICACOES_TIPO_2: 1.3,
                 CPAgrupadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 1.2,
                 CPAgrupadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 1.2,
+                CPSeparadoType.PROTENSAO: 1.2,
             },
             "excepcional": {
                 CPAgrupadoType.GRANDES_PONTES: 1.1,
@@ -81,6 +101,7 @@ class CargaPermanente(object):
                 CPAgrupadoType.EDIFICACOES_TIPO_2: 1.2,
                 CPAgrupadoType.EFEITOS_DE_RECALQUES_DE_APOIO: 0.0,
                 CPAgrupadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS: 0.0,
+                CPSeparadoType.PROTENSAO: 1.2,
             },
         },
     }
@@ -107,6 +128,11 @@ class CargaPermanente(object):
                 CPAgrupadoType.EFEITOS_DE_RETRACAO_DOS_MATERIAIS,
             ]:
                 return 0.0
+            elif self.tipo_carga in [
+                CPSeparadoType.PROTENSAO,
+                CPAgrupadoType.PROTENSAO,
+            ]:
+                return 0.9
             else:
                 return 1.0
         else:
@@ -117,28 +143,31 @@ class CargaPermanente(object):
 
 class CASeparadoType(Enum):
     ACOES_TRUNCADAS = auto()
-    TEMPERATURA = auto()
-    VENTO = auto()
+    EFEITO_DE_TEMPERATURA = auto()
+    ACAO_DO_VENTO = auto()
     ACOES_VARIAVEIS_EM_GERAL = auto()
+    EFEITO_DE_TEMPERATURA_GERADA_POR_EQUIPAMENTOS_NBR8800_2024 = auto()
+    ACOES_VARIAVEIS_EM_GERAL_NBR6118_2024 = auto()
+    EFEITO_DE_TEMPERATURA_NBR6118_2024 = auto()
 
 
 class CAAgrupadoType(Enum):
     PONTES_E_EDIFICACOES_TIPO_1 = auto()
     EDIFICACOES_TIPO_2 = auto()
-    ESTRUTURAS_EM_GERAL = auto()
 
 
 class CACoefReducaoType(Enum):
     EDIFICACOES_DE_ACESSO_RESTRITO = auto()
     EDIFICACOES_DE_ACESSO_PUBLICO = auto()
     BIBLIOTECAS_ARQUIVOS_DEPOSITOS_OFICINAS_E_GARAGENS = auto()
-    VENTO = auto()
-    TEMPERATURA = auto()
+    EFEITO_DE_TEMPERATURA = auto()
+    ACAO_DO_VENTO = auto()
     PASSARELAS_DE_PEDESTRES = auto()
     PONTES_RODOVIARIAS = auto()
     PONTES_FERROVIARIAS_NAO_ESPECIALIZADAS = auto()
     PONTES_FERROVIARIAS_ESPECIALIZADAS = auto()
-    VIGAS_DE_ROLAMENTOS_DE_PONTES_ROLANTES = auto()
+    VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES = auto()
+    PILARES_OU_OUTROS_ELEMENTOS_OU_SUBESTRUTURAS_QUE_SUPORTAM_VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES = auto()
 
 
 class CargaAcidental(object):
@@ -146,18 +175,30 @@ class CargaAcidental(object):
         "separado": {
             "normal": {
                 CASeparadoType.ACOES_TRUNCADAS: 1.2,
-                CASeparadoType.TEMPERATURA: 1.2,
-                CASeparadoType.VENTO: 1.4,
+                CASeparadoType.EFEITO_DE_TEMPERATURA: 1.2,
+                CASeparadoType.ACAO_DO_VENTO: 1.4,
                 CASeparadoType.ACOES_VARIAVEIS_EM_GERAL: 1.5,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_GERADA_POR_EQUIPAMENTOS_NBR8800_2024: 1.5,
+                CASeparadoType.ACOES_VARIAVEIS_EM_GERAL_NBR6118_2024: 1.4,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_NBR6118_2024: 1.2,
             },
             "especial": {
                 CASeparadoType.ACOES_TRUNCADAS: 1.1,
-                CASeparadoType.TEMPERATURA: 1.0,
-                CASeparadoType.VENTO: 1.2,
+                CASeparadoType.EFEITO_DE_TEMPERATURA: 1.0,
+                CASeparadoType.ACAO_DO_VENTO: 1.2,
                 CASeparadoType.ACOES_VARIAVEIS_EM_GERAL: 1.3,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_GERADA_POR_EQUIPAMENTOS_NBR8800_2024: 1.3,
+                CASeparadoType.ACOES_VARIAVEIS_EM_GERAL_NBR6118_2024: 1.2,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_NBR6118_2024: 1.0,
             },
             "excepcional": {
+                CASeparadoType.ACOES_TRUNCADAS: 1.0,
+                CASeparadoType.EFEITO_DE_TEMPERATURA: 1.0,
+                CASeparadoType.ACAO_DO_VENTO: 1.0,
                 CASeparadoType.ACOES_VARIAVEIS_EM_GERAL: 1.0,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_GERADA_POR_EQUIPAMENTOS_NBR8800_2024: 1.0,
+                CASeparadoType.ACOES_VARIAVEIS_EM_GERAL_NBR6118_2024: 1.0,
+                CASeparadoType.EFEITO_DE_TEMPERATURA_NBR6118_2024: 0.0,
             },
         },
         "agrupado": {
@@ -170,7 +211,8 @@ class CargaAcidental(object):
                 CAAgrupadoType.EDIFICACOES_TIPO_2: 1.2,
             },
             "excepcional": {
-                CAAgrupadoType.ESTRUTURAS_EM_GERAL: 1.0,
+                CAAgrupadoType.PONTES_E_EDIFICACOES_TIPO_1: 1.0,
+                CAAgrupadoType.EDIFICACOES_TIPO_2: 1.0,
             },
         },
     }
@@ -179,39 +221,42 @@ class CargaAcidental(object):
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_RESTRITO: 0.5,
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_PUBLICO: 0.7,
         CACoefReducaoType.BIBLIOTECAS_ARQUIVOS_DEPOSITOS_OFICINAS_E_GARAGENS: 0.8,
-        CACoefReducaoType.VENTO: 0.6,
-        CACoefReducaoType.TEMPERATURA: 0.6,
+        CACoefReducaoType.ACAO_DO_VENTO: 0.6,
+        CACoefReducaoType.EFEITO_DE_TEMPERATURA: 0.6,
         CACoefReducaoType.PASSARELAS_DE_PEDESTRES: 0.6,
         CACoefReducaoType.PONTES_RODOVIARIAS: 0.7,
         CACoefReducaoType.PONTES_FERROVIARIAS_NAO_ESPECIALIZADAS: 0.8,
         CACoefReducaoType.PONTES_FERROVIARIAS_ESPECIALIZADAS: 1.0,
-        CACoefReducaoType.VIGAS_DE_ROLAMENTOS_DE_PONTES_ROLANTES: 1.0,
+        CACoefReducaoType.VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 1.0,
+        CACoefReducaoType.PILARES_OU_OUTROS_ELEMENTOS_OU_SUBESTRUTURAS_QUE_SUPORTAM_VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 0.7,
     }
 
     phi1 = {
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_RESTRITO: 0.4,
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_PUBLICO: 0.6,
         CACoefReducaoType.BIBLIOTECAS_ARQUIVOS_DEPOSITOS_OFICINAS_E_GARAGENS: 0.7,
-        CACoefReducaoType.VENTO: 0.3,
-        CACoefReducaoType.TEMPERATURA: 0.5,
+        CACoefReducaoType.ACAO_DO_VENTO: 0.3,
+        CACoefReducaoType.EFEITO_DE_TEMPERATURA: 0.5,
         CACoefReducaoType.PASSARELAS_DE_PEDESTRES: 0.4,
         CACoefReducaoType.PONTES_RODOVIARIAS: 0.5,
         CACoefReducaoType.PONTES_FERROVIARIAS_NAO_ESPECIALIZADAS: 0.7,
         CACoefReducaoType.PONTES_FERROVIARIAS_ESPECIALIZADAS: 1.0,
-        CACoefReducaoType.VIGAS_DE_ROLAMENTOS_DE_PONTES_ROLANTES: 0.8,
+        CACoefReducaoType.VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 0.8,
+        CACoefReducaoType.PILARES_OU_OUTROS_ELEMENTOS_OU_SUBESTRUTURAS_QUE_SUPORTAM_VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 0.6,
     }
 
     phi2 = {
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_RESTRITO: 0.3,
         CACoefReducaoType.EDIFICACOES_DE_ACESSO_PUBLICO: 0.4,
         CACoefReducaoType.BIBLIOTECAS_ARQUIVOS_DEPOSITOS_OFICINAS_E_GARAGENS: 0.6,
-        CACoefReducaoType.VENTO: 0.0,
-        CACoefReducaoType.TEMPERATURA: 0.3,
+        CACoefReducaoType.ACAO_DO_VENTO: 0.0,
+        CACoefReducaoType.EFEITO_DE_TEMPERATURA: 0.3,
         CACoefReducaoType.PASSARELAS_DE_PEDESTRES: 0.3,
         CACoefReducaoType.PONTES_RODOVIARIAS: 0.3,
         CACoefReducaoType.PONTES_FERROVIARIAS_NAO_ESPECIALIZADAS: 0.5,
         CACoefReducaoType.PONTES_FERROVIARIAS_ESPECIALIZADAS: 0.6,
-        CACoefReducaoType.VIGAS_DE_ROLAMENTOS_DE_PONTES_ROLANTES: 0.5,
+        CACoefReducaoType.VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 0.5,
+        CACoefReducaoType.PILARES_OU_OUTROS_ELEMENTOS_OU_SUBESTRUTURAS_QUE_SUPORTAM_VIGAS_DE_ROLAMENTO_DE_PONTES_ROLANTES: 0.4,
     }
 
     def __init__(
@@ -276,24 +321,17 @@ class CargaAcidental(object):
             return self.phi2[self.tipo_coef_reducao]
 
 
-def check_append_combo(
-    out: List[float], ca: List[float], n_cargas_acidentais: int, tol: float
-):
-    for o in out:
-        residuo = 0.0
-        for v in range(n_cargas_acidentais):
-            residuo += abs(o[v] - ca[v])
-        if residuo < tol:
+def check_append_combo(combis: List[float], ca: List[float], tol: float):
+    for combi in combis:
+        if all([math.isclose(i, j, rel_tol=tol) for i, j in zip(combi, ca)]):
             return False
     return True
 
 
 def check_separado_ou_agrupado(carregamentos: List[CargaPermanente | CargaAcidental]):
-    assert all(
-        x.separado_ou_agrupado == carregamentos[0].separado_ou_agrupado
-        for x in carregamentos
-    )
-    return carregamentos[0].separado_ou_agrupado
+    test = set([c.separado_ou_agrupado for c in carregamentos])
+    assert len(test) == 1
+    return test.pop()
 
 
 def calc_combi_ultima_carga_permanente(
@@ -354,7 +392,7 @@ def calc_combi_ultima_carga_acidental(
             lbls[k] = str(gamma_q) + "*" + cargas_acidentais[k].label
             ca[k] = gamma_q * cargas_acidentais[k].valor
             if filtrar_combi_semelhantes:
-                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                if check_append_combo(combis, ca, tol):
                     label_combis.append(" + ".join(lbls))
                     combis.append(ca)
             else:
@@ -397,7 +435,7 @@ def calc_combi_servico_carga_acidental(
                 lbls.append(str(phi2) + "*" + cargas_acidentais[j].label)
                 ca.append(phi2 * cargas_acidentais[j].valor)
             if filtrar_combi_semelhantes:
-                if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                if check_append_combo(combis, ca, tol):
                     label_combis.append(lbls)
                     combis.append(ca)
             else:
@@ -416,7 +454,7 @@ def calc_combi_servico_carga_acidental(
                 lbls[k] = str(phi1) + "*" + cargas_acidentais[k].label
                 ca[k] = phi1 * cargas_acidentais[k].valor
                 if filtrar_combi_semelhantes:
-                    if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    if check_append_combo(combis, ca, tol):
                         label_combis.append(lbls)
                         combis.append(ca)
                 else:
@@ -435,7 +473,7 @@ def calc_combi_servico_carga_acidental(
                 lbls[k] = str(phi) + "*" + cargas_acidentais[k].label
                 ca[k] = phi * cargas_acidentais[k].valor
                 if filtrar_combi_semelhantes:
-                    if check_append_combo(combis, ca, n_cargas_acidentais, tol):
+                    if check_append_combo(combis, ca, tol):
                         label_combis.append(lbls)
                         combis.append(ca)
                 else:

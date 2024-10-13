@@ -45,8 +45,8 @@ def main():
         ),
         CargaAcidental(
             "ca3",
-            CASeparadoType.VENTO,
-            CACoefReducaoType.VENTO,
+            CASeparadoType.ACAO_DO_VENTO,
+            CACoefReducaoType.ACAO_DO_VENTO,
             3,
         ),
     ]
