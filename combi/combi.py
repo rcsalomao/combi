@@ -1,11 +1,9 @@
 from __future__ import annotations
-import math
-from typing import List
-import itertools
-from enum import Enum, auto
-import json
+
 import csv
-from itertools import chain
+import itertools
+import json
+from enum import Enum, auto
 
 
 class CPSeparadoType(Enum):
@@ -321,21 +319,16 @@ class CargaAcidental(object):
             return self.phi2[self.tipo_coef_reducao]
 
 
-def check_append_combo(combis: List[float], ca: List[float], tol: float):
-    for combi in combis:
-        if all([math.isclose(i, j, rel_tol=tol) for i, j in zip(combi, ca)]):
-            return False
-    return True
-
-
-def check_separado_ou_agrupado(carregamentos: List[CargaPermanente | CargaAcidental]):
+def check_separado_ou_agrupado(carregamentos: list[CargaPermanente | CargaAcidental]):
     test = set([c.separado_ou_agrupado for c in carregamentos])
-    assert len(test) == 1
+    assert (
+        len(test) == 1
+    ), "Para um mesmo conjunto, há carregamentos do tipo 'separado' e 'agrupado', o que não é permitido por norma"
     return test.pop()
 
 
 def calc_combi_ultima_carga_permanente(
-    cargas_permanentes: List[CargaPermanente], tipo_combinacao: str
+    cargas_permanentes: list[CargaPermanente], tipo_combinacao: str
 ):
     assert tipo_combinacao in ["normal", "especial", "excepcional"]
     n_cargas_permanentes = len(cargas_permanentes)
@@ -346,23 +339,21 @@ def calc_combi_ultima_carga_permanente(
     combis = []
     for i in range(len(combos_fav_desfav)):
         lbls = []
-        cp = []
+        cps = []
         for j in range(n_cargas_permanentes):
             gamma_g = cargas_permanentes[j].get_gamma(
                 tipo_combinacao, combos_fav_desfav[i][j]
             )
             lbls.append(str(gamma_g) + "*" + cargas_permanentes[j].label)
-            cp.append(gamma_g * cargas_permanentes[j].valor)
+            cps.append(gamma_g * cargas_permanentes[j].valor)
         label_combis.append(" + ".join(lbls))
-        combis.append(cp)
+        combis.append(cps)
     return (label_combis, combis)
 
 
 def calc_combi_ultima_carga_acidental(
-    cargas_acidentais: List[CargaAcidental],
+    cargas_acidentais: list[CargaAcidental],
     tipo_combinacao: str,
-    filtrar_combi_semelhantes: bool = False,
-    tol: float = 1e-8,
 ):
     assert tipo_combinacao in ["normal", "especial", "excepcional"]
     n_cargas_acidentais = len(cargas_acidentais)
@@ -371,10 +362,11 @@ def calc_combi_ultima_carga_acidental(
     )
     label_combis = []
     combis = []
+    carregamentos_acidentais_principais = []
     for i in range(len(combos_fav_desfav)):
         for k in range(n_cargas_acidentais):
             lbls = []
-            ca = []
+            cas = []
             for j in range(n_cargas_acidentais):
                 gamma_q = cargas_acidentais[j].get_gamma(
                     tipo_combinacao, combos_fav_desfav[i][j]
@@ -385,39 +377,32 @@ def calc_combi_ultima_carga_acidental(
                 lbls.append(
                     str(gamma_q) + "*" + str(phi0) + "*" + cargas_acidentais[j].label
                 )
-                ca.append(gamma_q * phi0 * cargas_acidentais[j].valor)
+                cas.append(gamma_q * phi0 * cargas_acidentais[j].valor)
             gamma_q = cargas_acidentais[k].get_gamma(
                 tipo_combinacao, combos_fav_desfav[i][k]
             )
             lbls[k] = str(gamma_q) + "*" + cargas_acidentais[k].label
-            ca[k] = gamma_q * cargas_acidentais[k].valor
-            if filtrar_combi_semelhantes:
-                if check_append_combo(combis, ca, tol):
-                    label_combis.append(" + ".join(lbls))
-                    combis.append(ca)
-            else:
-                label_combis.append(" + ".join(lbls))
-                combis.append(ca)
-    return (label_combis, combis)
+            cas[k] = gamma_q * cargas_acidentais[k].valor
+            label_combis.append(" + ".join(lbls))
+            combis.append(cas)
+            carregamentos_acidentais_principais.append(cargas_acidentais[k].label)
+    return (label_combis, combis, carregamentos_acidentais_principais)
 
 
-def calc_combi_servico_carga_permanente(cargas_permanentes: List[CargaPermanente]):
-    n_cargas_permanentes = len(cargas_permanentes)
+def calc_combi_servico_carga_permanente(cargas_permanentes: list[CargaPermanente]):
     lbls = []
-    cp = []
-    for i in range(n_cargas_permanentes):
+    cps = []
+    for i in range(len(cargas_permanentes)):
         lbls.append(cargas_permanentes[i].label)
-        cp.append(cargas_permanentes[i].valor)
+        cps.append(cargas_permanentes[i].valor)
     label_combis = [" + ".join(lbls)]
-    combi = [cp]
+    combi = [cps]
     return (label_combis, combi)
 
 
 def calc_combi_servico_carga_acidental(
-    cargas_acidentais: List[CargaAcidental],
+    cargas_acidentais: list[CargaAcidental],
     tipo_combinacao: str,
-    filtrar_combi_semelhantes: bool = False,
-    tol: float = 1e-8,
 ):
     assert tipo_combinacao in ["quase permanente", "frequente", "raro"]
     n_cargas_acidentais = len(cargas_acidentais)
@@ -426,65 +411,53 @@ def calc_combi_servico_carga_acidental(
     )
     label_combis = []
     combis = []
+    carregamentos_acidentais_principais = []
     if tipo_combinacao == "quase permanente":
         for i in range(len(combos_fav_desfav)):
             lbls = []
-            ca = []
+            cas = []
             for j in range(n_cargas_acidentais):
                 phi2 = cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
                 lbls.append(str(phi2) + "*" + cargas_acidentais[j].label)
-                ca.append(phi2 * cargas_acidentais[j].valor)
-            if filtrar_combi_semelhantes:
-                if check_append_combo(combis, ca, tol):
-                    label_combis.append(lbls)
-                    combis.append(ca)
-            else:
-                label_combis.append(lbls)
-                combis.append(ca)
+                cas.append(phi2 * cargas_acidentais[j].valor)
+            label_combis.append(lbls)
+            combis.append(cas)
+            carregamentos_acidentais_principais.append(None)
     elif tipo_combinacao == "frequente":
         for i in range(len(combos_fav_desfav)):
             for k in range(n_cargas_acidentais):
                 lbls = []
-                ca = []
+                cas = []
                 for j in range(n_cargas_acidentais):
                     phi2 = cargas_acidentais[j].get_phi2(combos_fav_desfav[i][j])
                     lbls.append(str(phi2) + "*" + cargas_acidentais[j].label)
-                    ca.append(phi2 * cargas_acidentais[j].valor)
+                    cas.append(phi2 * cargas_acidentais[j].valor)
                 phi1 = cargas_acidentais[k].get_phi1(combos_fav_desfav[i][k])
                 lbls[k] = str(phi1) + "*" + cargas_acidentais[k].label
-                ca[k] = phi1 * cargas_acidentais[k].valor
-                if filtrar_combi_semelhantes:
-                    if check_append_combo(combis, ca, tol):
-                        label_combis.append(lbls)
-                        combis.append(ca)
-                else:
-                    label_combis.append(lbls)
-                    combis.append(ca)
+                cas[k] = phi1 * cargas_acidentais[k].valor
+                label_combis.append(lbls)
+                combis.append(cas)
+                carregamentos_acidentais_principais.append(cargas_acidentais[k].label)
     elif tipo_combinacao == "raro":
         for i in range(len(combos_fav_desfav)):
             for k in range(n_cargas_acidentais):
                 lbls = []
-                ca = []
+                cas = []
                 for j in range(n_cargas_acidentais):
                     phi1 = cargas_acidentais[j].get_phi1(combos_fav_desfav[i][j])
                     lbls.append(str(phi1) + "*" + cargas_acidentais[j].label)
-                    ca.append(phi1 * cargas_acidentais[j].valor)
+                    cas.append(phi1 * cargas_acidentais[j].valor)
                 phi = 1.0 if combos_fav_desfav[i][k] else 0.0
                 lbls[k] = str(phi) + "*" + cargas_acidentais[k].label
-                ca[k] = phi * cargas_acidentais[k].valor
-                if filtrar_combi_semelhantes:
-                    if check_append_combo(combis, ca, tol):
-                        label_combis.append(lbls)
-                        combis.append(ca)
-                else:
-                    label_combis.append(lbls)
-                    combis.append(ca)
-    return (label_combis, combis)
+                cas[k] = phi * cargas_acidentais[k].valor
+                label_combis.append(lbls)
+                combis.append(cas)
+                carregamentos_acidentais_principais.append(cargas_acidentais[k].label)
+    return (label_combis, combis, carregamentos_acidentais_principais)
 
 
 class Combi(object):
     def __init__(self, data: dict):
-        assert len(data["label_combis"]) == len(data["combis"])
         self._data = data
 
     @property
@@ -496,22 +469,12 @@ class Combi(object):
         return self.data["label_carregamentos"]
 
     @property
-    def label_combis(self):
-        return self.data["label_combis"]
-
-    @property
     def combis(self):
         return self.data["combis"]
 
     def get_json(self):
         return json.dumps(
-            {
-                "label_carregamentos": list(
-                    chain.from_iterable(self.label_carregamentos)
-                ),
-                "label_combis": self.label_combis,
-                "combis": [list(chain.from_iterable(cbs)) for cbs in self.combis],
-            },
+            self.data,
             indent=2,
             ensure_ascii=False,
         )
@@ -525,131 +488,175 @@ class Combi(object):
         with open(file_name + ".csv", "w") as file:
             csv_writer = csv.writer(file)
             csv_writer.writerow(
-                ["label_combis"] + list(chain.from_iterable(self.label_carregamentos))
+                ["label_combis"]
+                + ["carregamento_acidental_principal"]
+                + self.label_carregamentos["carregamentos_permanentes"]
+                + self.label_carregamentos["carregamentos_acidentais"]
             )
-            for i in range(len(self.combis)):
+            for c in self.combis:
                 csv_writer.writerow(
-                    [self.label_combis[i]] + list(chain.from_iterable(self.combis[i]))
+                    [c["label"]]
+                    + [c["carregamento_acidental_principal"]]
+                    + c["carregamentos_permanentes"]
+                    + c["carregamentos_acidentais"]
                 )
 
 
 def calc_combi_ultima(
-    cargas_permanentes: List[CargaPermanente] = None,
-    cargas_acidentais: List[CargaAcidental] = None,
+    cargas_permanentes: list[CargaPermanente] = None,
+    cargas_acidentais: list[CargaAcidental] = None,
     tipo_combinacao: str = "normal",
-    filtrar_combi_semelhantes: bool = False,
-    tol: float = 1e-8,
 ):
     if cargas_permanentes is not None:
-        separado_ou_agrupado_cp = check_separado_ou_agrupado(cargas_permanentes)
+        separado_ou_agrupado_cps = check_separado_ou_agrupado(cargas_permanentes)
     if cargas_acidentais is not None:
-        separado_ou_agrupado_ca = check_separado_ou_agrupado(cargas_acidentais)
+        separado_ou_agrupado_cas = check_separado_ou_agrupado(cargas_acidentais)
     if (cargas_permanentes is not None) and (cargas_acidentais is not None):
-        if separado_ou_agrupado_ca == "agrupado":
-            assert separado_ou_agrupado_cp == "agrupado"
+        if separado_ou_agrupado_cas == "agrupado":
+            assert (
+                separado_ou_agrupado_cps == "agrupado"
+            ), "O conjunto de carregamentos permanentes deve ser do tipo 'agrupado', em conformidade com o tipo do conjunto de carregamentos variáveis"
 
     label_combis = []
     combis = []
+    carregamentos_acidentais_principais = []
     if (cargas_permanentes is not None) and (cargas_acidentais is None):
-        label_cp_combi_ultima, cp_combi_ultima = calc_combi_ultima_carga_permanente(
+        label_cps_combi_ultima, cps_combi_ultima = calc_combi_ultima_carga_permanente(
             cargas_permanentes, tipo_combinacao
         )
-        for cp in cp_combi_ultima:
-            combis.append((cp, []))
-        label_combis = label_cp_combi_ultima
+        for cps in cps_combi_ultima:
+            combis.append((cps, []))
+            carregamentos_acidentais_principais.append(None)
+        label_combis = label_cps_combi_ultima
     elif (cargas_permanentes is None) and (cargas_acidentais is not None):
-        label_ca_combi_ultima, ca_combi_ultima = calc_combi_ultima_carga_acidental(
-            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
-        )
-        for ca in ca_combi_ultima:
-            combis.append(([], ca))
-        label_combis = label_ca_combi_ultima
+        (
+            label_cas_combi_ultima,
+            cas_combi_ultima,
+            carregamentos_acidentais_principais_,
+        ) = calc_combi_ultima_carga_acidental(cargas_acidentais, tipo_combinacao)
+        for cas in cas_combi_ultima:
+            combis.append(([], cas))
+        label_combis = label_cas_combi_ultima
+        carregamentos_acidentais_principais = carregamentos_acidentais_principais_
     elif (cargas_permanentes is None) and (cargas_acidentais is None):
         return []
     else:
-        label_cp_combi_ultima, cp_combi_ultima = calc_combi_ultima_carga_permanente(
+        label_cps_combi_ultima, cps_combi_ultima = calc_combi_ultima_carga_permanente(
             cargas_permanentes, tipo_combinacao
         )
-        label_ca_combi_ultima, ca_combi_ultima = calc_combi_ultima_carga_acidental(
-            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
-        )
-        for m, cp in enumerate(cp_combi_ultima):
-            for n, ca in enumerate(ca_combi_ultima):
-                combis.append((cp, ca))
+        (
+            label_cas_combi_ultima,
+            cas_combi_ultima,
+            carregamentos_acidentais_principais_,
+        ) = calc_combi_ultima_carga_acidental(cargas_acidentais, tipo_combinacao)
+        for m, cps in enumerate(cps_combi_ultima):
+            for n, cas in enumerate(cas_combi_ultima):
+                combis.append((cps, cas))
                 label_combis.append(
-                    label_cp_combi_ultima[m] + " + " + label_ca_combi_ultima[n]
+                    label_cps_combi_ultima[m] + " + " + label_cas_combi_ultima[n]
                 )
-    label_carregamentos = (
-        [cp.label for cp in cargas_permanentes]
+                carregamentos_acidentais_principais.append(
+                    carregamentos_acidentais_principais_[n]
+                )
+    label_carregamentos = {
+        "carregamentos_permanentes": [cp.label for cp in cargas_permanentes]
         if cargas_permanentes is not None
         else [],
-        [ca.label for ca in cargas_acidentais] if cargas_acidentais is not None else [],
-    )
+        "carregamentos_acidentais": [ca.label for ca in cargas_acidentais]
+        if cargas_acidentais is not None
+        else [],
+    }
+    combis = [
+        {
+            "label": label_combis[i],
+            "carregamentos_permanentes": cps,
+            "carregamentos_acidentais": cas,
+            "carregamento_acidental_principal": carregamentos_acidentais_principais[i],
+        }
+        for i, (cps, cas) in enumerate(combis)
+    ]
     return Combi(
         {
             "label_carregamentos": label_carregamentos,
-            "label_combis": label_combis,
             "combis": combis,
         }
     )
 
 
 def calc_combi_servico(
-    cargas_permanentes: List[CargaPermanente] = None,
-    cargas_acidentais: List[CargaAcidental] = None,
+    cargas_permanentes: list[CargaPermanente] = None,
+    cargas_acidentais: list[CargaAcidental] = None,
     tipo_combinacao: str = "frequente",
-    filtrar_combi_semelhantes: bool = False,
-    tol: float = 1e-8,
 ):
     if cargas_permanentes is not None:
-        separado_ou_agrupado_cp = check_separado_ou_agrupado(cargas_permanentes)
+        separado_ou_agrupado_cps = check_separado_ou_agrupado(cargas_permanentes)
     if cargas_acidentais is not None:
-        separado_ou_agrupado_ca = check_separado_ou_agrupado(cargas_acidentais)
+        separado_ou_agrupado_cas = check_separado_ou_agrupado(cargas_acidentais)
     if (cargas_permanentes is not None) and (cargas_acidentais is not None):
-        if separado_ou_agrupado_ca == "agrupado":
-            assert separado_ou_agrupado_cp == "agrupado"
+        if separado_ou_agrupado_cas == "agrupado":
+            assert separado_ou_agrupado_cps == "agrupado"
 
     label_combis = []
     combis = []
+    carregamentos_acidentais_principais = []
     if (cargas_permanentes is not None) and (cargas_acidentais is None):
-        label_cp_combi_servico, cp_combi_servico = calc_combi_servico_carga_permanente(
-            cargas_permanentes
+        label_cps_combi_servico, cps_combi_servico = (
+            calc_combi_servico_carga_permanente(cargas_permanentes)
         )
-        for cp in cp_combi_servico:
-            combis.append((cp, []))
-        label_combis = label_cp_combi_servico
+        for cps in cps_combi_servico:
+            combis.append((cps, []))
+            carregamentos_acidentais_principais.append(None)
+        label_combis = label_cps_combi_servico
     elif (cargas_permanentes is None) and (cargas_acidentais is not None):
-        label_ca_combi_servico, ca_combi_servico = calc_combi_servico_carga_acidental(
-            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
-        )
-        for ca in ca_combi_servico:
-            combis.append(([], ca))
-        label_combis = label_ca_combi_servico
+        (
+            label_cas_combi_servico,
+            cas_combi_servico,
+            carregamentos_acidentais_principais_,
+        ) = calc_combi_servico_carga_acidental(cargas_acidentais, tipo_combinacao)
+        for cas in cas_combi_servico:
+            combis.append(([], cas))
+        label_combis = label_cas_combi_servico
+        carregamentos_acidentais_principais = carregamentos_acidentais_principais_
     elif (cargas_permanentes is None) and (cargas_acidentais is None):
         return []
     else:
-        label_cp_combi_servico, cp_combi_servico = calc_combi_servico_carga_permanente(
-            cargas_permanentes
+        label_cps_combi_servico, cps_combi_servico = (
+            calc_combi_servico_carga_permanente(cargas_permanentes)
         )
-        label_ca_combi_servico, ca_combi_servico = calc_combi_servico_carga_acidental(
-            cargas_acidentais, tipo_combinacao, filtrar_combi_semelhantes, tol
-        )
-        for m, cp in enumerate(cp_combi_servico):
-            for n, ca in enumerate(ca_combi_servico):
-                combis.append((cp, ca))
+        (
+            label_cas_combi_servico,
+            cas_combi_servico,
+            carregamentos_acidentais_principais_,
+        ) = calc_combi_servico_carga_acidental(cargas_acidentais, tipo_combinacao)
+        for m, cps in enumerate(cps_combi_servico):
+            for n, cas in enumerate(cas_combi_servico):
+                combis.append((cps, cas))
                 label_combis.append(
-                    label_cp_combi_servico[m] + " + " + label_ca_combi_servico[n]
+                    label_cps_combi_servico[m] + " + " + label_cas_combi_servico[n]
                 )
-    label_carregamentos = (
-        [cp.label for cp in cargas_permanentes]
+                carregamentos_acidentais_principais.append(
+                    carregamentos_acidentais_principais_[n]
+                )
+    label_carregamentos = {
+        "carregamentos_permanentes": [cp.label for cp in cargas_permanentes]
         if cargas_permanentes is not None
         else [],
-        [ca.label for ca in cargas_acidentais] if cargas_acidentais is not None else [],
-    )
+        "carregamentos_acidentais": [ca.label for ca in cargas_acidentais]
+        if cargas_acidentais is not None
+        else [],
+    }
+    combis = [
+        {
+            "label": label_combis[i],
+            "carregamentos_permanentes": cps,
+            "carregamentos_acidentais": cas,
+            "carregamento_acidental_principal": carregamentos_acidentais_principais[i],
+        }
+        for i, (cps, cas) in enumerate(combis)
+    ]
     return Combi(
         {
             "label_carregamentos": label_carregamentos,
-            "label_combis": label_combis,
             "combis": combis,
         }
     )

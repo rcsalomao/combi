@@ -1,15 +1,16 @@
+from pprint import pp
+
 from combi import (
-    CPAgrupadoType,
-    CPSeparadoType,
-    CargaPermanente,
     CAAgrupadoType,
-    CASeparadoType,
     CACoefReducaoType,
     CargaAcidental,
-    calc_combi_ultima,
+    CargaPermanente,
+    CASeparadoType,
+    CPAgrupadoType,
+    CPSeparadoType,
     calc_combi_servico,
+    calc_combi_ultima,
 )
-from pprint import pp
 
 
 def main():
@@ -51,14 +52,14 @@ def main():
         ),
     ]
 
-    resultado = calc_combi_ultima(cargas_permanentes, cargas_variaveis)
-    # resultado = calc_combi_ultima(cargas_permanentes)
+    # resultado = calc_combi_ultima(cargas_permanentes, cargas_variaveis)
+    resultado = calc_combi_ultima(cargas_permanentes)
     # resultado = calc_combi_ultima(cargas_acidentais=cargas_variaveis)
 
-    pp(resultado.data)
+    # pp(resultado.data)
     # print(len(resultado.combis))
     # print(resultado.get_json())
-    # resultado.write_json('resultado')
+    resultado.write_json('resultado')
     # resultado.write_csv("resultado")
 
 
